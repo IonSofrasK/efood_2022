@@ -1,17 +1,18 @@
 --Query #1
 select A.city, A.breakfast_basket, B.efood_basket ,A.breakfast_freq,B.efood_freq from 
-(SELECT city, sum(amount)/count(order_id) as breakfast_basket,count(order_id)/ count(distinct(user_id)) as breakfast_freq 
+(SELECT city,count(order_id), sum(amount)/count(order_id) as breakfast_basket,count(order_id)/ count(distinct(user_id)) as breakfast_freq 
 FROM edoof2022.main_assessment.orders 
 where cuisine = "Breakfast"
-group by city)A
---having count(order_id)>1000)
+group by city
+having count(order_id)>1000
+order by count(order_id) desc)A
 inner join
 (SELECT city, sum(amount)/count(order_id) as efood_basket, count(order_id)/ count(distinct(user_id)) as efood_freq FROM edoof2022.main_assessment.orders
 group by city)B
---having count(order_id)>1000)
 on A.city = B.city 
---order by A.breakfast_freq desc
---limit 5
+limit 5
+Comments: the 1st parenthesis is for "Breakfast" cuisine and the 2nd parenthesis for the total efood. I inner join tow parenthesis with city as key. 
+
 
 --Query #2
 WITH top_users AS (
@@ -25,3 +26,6 @@ SELECT city, SUM(order_count) AS total_orders,
   (SUM(CASE WHEN rank <= 10 THEN order_count ELSE 0 END) * 100.0 / SUM(order_count)) AS percentage
 FROM top_users
 GROUP BY city;
+Comments: we use the top_users to calculate the order count for each user in each city and assign a rank to each user based on their order count within their city.
+The ROW_NUMBER() function is used to generate the rank. The main query sums up the order counts for all users in each city and separately calculates the sum of order 
+counts for the top 10 users in each city.
