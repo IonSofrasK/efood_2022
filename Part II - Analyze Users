@@ -1,0 +1,114 @@
+import pandas as pd 
+
+efood = pd.read_csv("orders.csv")
+efood.head()
+frequency = efood.groupby('user_id').size().reset_index(name='frequency')
+
+data_with_frequency = pd.merge(efood, frequency, on='user_id', how='left')
+
+data_with_frequency.head()
+
+order_value = efood.groupby('user_id')['amount'].sum().reset_index(name='order_value')
+
+final_data = pd.merge(data_with_frequency, order_value, on='user_id', how='left')
+
+frequency_counts = final_data['frequency'].value_counts()
+frequency_counts = frequency_counts.sort_index()
+
+plt.bar(frequency_counts.index, frequency_counts.values)
+plt.xlabel('Frequency')
+plt.ylabel('Count')
+plt.title('Customer Frequency')
+plt.show()
+
+final_data['order_timestamp']= pd.to_datetime(final_data['order_timestamp'])
+# keep only the most recent date of purchase
+final_data['rank'] = final_data.sort_values(['user_id','order_timestamp']).groupby(['user_id'])['order_timestamp'].rank(method='min').astype(int)
+df_rec = final_data[final_data['rank']==1]
+
+df_rec['recency'] = (df_rec['order_timestamp'] - pd.to_datetime(min(df_rec['order_timestamp']))).dt.days
+
+correlation_matrix = final_data.corr()
+print(correlation_matrix)
+
+sns.heatmap(correlation_matrix, annot=True, cmap='coolwarm')
+plt.show()
+
+kendall_tau, p_value = stats.kendalltau(final_data['city'], final_data['cuisine'])
+print("Kendall's Tau:", kendall_tau)
+
+df_rec.head()
+
+order_counts = df_rec['order_value'].value_counts()
+order_counts = order_counts.sort_index()
+
+# Plot the frequencies
+plt.bar(order_counts.index, order_counts.values)
+plt.xlabel('Order')
+plt.ylabel('Count')
+plt.title('Order Value')
+plt.show()
+
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+list1 = ['order_value','frequency','recency']
+for i in list1:
+    print(str(i)+': ')
+    ax = sns.boxplot(x=df_rec[str(i)])
+    plt.show()
+
+from scipy import stats
+import numpy as np
+
+new_df = df_rec[['frequency','order_value','recency']]
+# remove outliers
+z_scores = stats.zscore(new_df)
+abs_z_scores = np.abs(z_scores)
+filtered_entries = (abs_z_scores < 3).all(axis=1)
+new_df = new_df[filtered_entries]
+
+new_df.head()
+
+from sklearn.preprocessing import StandardScaler
+new_df = new_df.drop_duplicates()
+col_names = ['frequency', 'order_value','recency']
+features = new_df[col_names]
+scaler = StandardScaler().fit(features.values)
+features = scaler.transform(features.values)
+scaled_features = pd.DataFrame(features, columns = col_names)
+
+scaled_features.head()
+
+import matplotlib.pyplot as plt
+from sklearn.datasets import make_blobs
+from sklearn.cluster import KMeans
+from sklearn.metrics import silhouette_score
+from sklearn.decomposition import PCA
+from mpl_toolkits.mplot3d import Axes3D
+
+SSE = []
+for cluster in range(1,10):
+    kmeans = KMeans(n_clusters = cluster, init='k-means++')
+    kmeans.fit(scaled_features)
+    SSE.append(kmeans.inertia_)
+
+frame = pd.DataFrame({'Cluster':range(1,10), 'SSE':SSE})
+plt.figure(figsize=(12,6))
+plt.plot(frame['Cluster'], frame['SSE'], marker='o')
+plt.xlabel('Number of clusters')
+
+kmeans = KMeans( n_clusters = 3, init='k-means++')
+kmeans.fit(scaled_features)
+
+pred = kmeans.predict(scaled_features)
+frame = pd.DataFrame(new_df)
+frame['cluster'] = pred
+frame.head()
+
+avg_df = frame.groupby(['cluster'], as_index=False).mean()
+for i in list1:
+    sns.barplot(x='cluster',y=str(i),data=avg_df)
+    plt.show()
+
+print(silhouette_score(scaled_features, kmeans.labels_, metric='euclidean'))
