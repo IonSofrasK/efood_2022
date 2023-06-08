@@ -1,0 +1,27 @@
+--Query #1
+select A.city, A.breakfast_basket, B.efood_basket ,A.breakfast_freq,B.efood_freq from 
+(SELECT city, sum(amount)/count(order_id) as breakfast_basket,count(order_id)/ count(distinct(user_id)) as breakfast_freq 
+FROM edoof2022.main_assessment.orders 
+where cuisine = "Breakfast"
+group by city)A
+--having count(order_id)>1000)
+inner join
+(SELECT city, sum(amount)/count(order_id) as efood_basket, count(order_id)/ count(distinct(user_id)) as efood_freq FROM edoof2022.main_assessment.orders
+group by city)B
+--having count(order_id)>1000)
+on A.city = B.city 
+--order by A.breakfast_freq desc
+--limit 5
+
+--Query #2
+WITH top_users AS (
+  SELECT city, user_id, COUNT(*) AS order_count,
+    ROW_NUMBER() OVER (PARTITION BY city ORDER BY COUNT(*) DESC) AS rank
+  FROM edoof2022.main_assessment.orders
+  GROUP BY city, user_id
+)
+SELECT city, SUM(order_count) AS total_orders,
+  SUM(CASE WHEN rank <= 10 THEN order_count ELSE 0 END) AS top_10_orders,
+  (SUM(CASE WHEN rank <= 10 THEN order_count ELSE 0 END) * 100.0 / SUM(order_count)) AS percentage
+FROM top_users
+GROUP BY city;
